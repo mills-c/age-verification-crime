@@ -1,0 +1,252 @@
+* Establish directories
+
+/* CRC Directories: Set directory to group folder 
+cd "/groups/cmills6/"
+global cmills6 "/groups/cmills6/"
+global nibrs "${cmills6}Age Verification/NIBRS Data/"
+global admin "${nibrs}Administrative Segment/"
+global ucr "${cmills6}ucr_arrests_kaplan/"
+*/
+
+
+*Local Directories (comment out when running on CRC)
+global nibrs "/Users/emilydavis/Documents/gitrepos/age-verification-crime/data/NIBRS"
+global ucr "/Users/emilydavis/Documents/gitrepos/age-verification-crime/data/UCR"
+global output "/Users/emilydavis/Documents/gitrepos/age-verification-crime/output/descriptives"
+
+use "$nibrs/agency_panel", clear
+
+
+********************************************************************************
+* Summary Tables: Agency Coverage and Data Completeness
+* Two columns: Full Sample vs. Balanced Sample (36 months)
+********************************************************************************
+
+* --- Define samples ---
+
+count
+local N_full = r(N)
+
+count if months_total == 36
+local N_bal = r(N)
+
+local N_full_fmt = string(`N_full', "%9.0fc")
+local N_bal_fmt  = string(`N_bal',  "%9.0fc")
+
+* --- Panel A scalars: Coverage ---
+
+* Full sample
+count if months_total == 36
+local share_full_full = string((r(N) / `N_full') * 100, "%5.1f")
+
+count if population != . 
+local share_pop_full  = string((r(N) / `N_full') * 100, "%5.1f")
+
+* Balanced sample
+count if population != . & months_total == 36
+local share_pop_bal   = string((r(N) / `N_bal') * 100, "%5.1f")
+
+* (share_full_bal is 100% by construction, but we report it for completeness)
+local share_full_bal  = "100.0"
+
+* --- Panel B scalars: Percentiles ---
+
+* Full sample
+_pctile share_age_nonmiss, percentiles(10 25 50 75 90)
+local age_p10_full = string(r(r1), "%5.3f")
+local age_p25_full = string(r(r2), "%5.3f")
+local age_p50_full = string(r(r3), "%5.3f")
+local age_p75_full = string(r(r4), "%5.3f")
+local age_p90_full = string(r(r5), "%5.3f")
+
+_pctile share_sex_nonmiss, percentiles(10 25 50 75 90)
+local sex_p10_full = string(r(r1), "%5.3f")
+local sex_p25_full = string(r(r2), "%5.3f")
+local sex_p50_full = string(r(r3), "%5.3f")
+local sex_p75_full = string(r(r4), "%5.3f")
+local sex_p90_full = string(r(r5), "%5.3f")
+
+* Balanced sample
+_pctile share_age_nonmiss if months_total == 36, percentiles(10 25 50 75 90)
+local age_p10_bal = string(r(r1), "%5.3f")
+local age_p25_bal = string(r(r2), "%5.3f")
+local age_p50_bal = string(r(r3), "%5.3f")
+local age_p75_bal = string(r(r4), "%5.3f")
+local age_p90_bal = string(r(r5), "%5.3f")
+
+_pctile share_sex_nonmiss if months_total == 36, percentiles(10 25 50 75 90)
+local sex_p10_bal = string(r(r1), "%5.3f")
+local sex_p25_bal = string(r(r2), "%5.3f")
+local sex_p50_bal = string(r(r3), "%5.3f")
+local sex_p75_bal = string(r(r4), "%5.3f")
+local sex_p90_bal = string(r(r5), "%5.3f")
+
+* Share with <10% missing for age only
+count if share_age_nonmiss > 0.90
+local share_age_full = string((r(N) / `N_full') * 100, "%5.1f")
+
+count if share_age_nonmiss > 0.90 & months_total == 36
+local share_age_bal = string((r(N) / `N_bal') * 100, "%5.1f")
+
+* Share with <10% missing for sex only
+count if share_sex_nonmiss > 0.90
+local share_sex_full = string((r(N) / `N_full') * 100, "%5.1f")
+
+count if share_sex_nonmiss > 0.90 & months_total == 36
+local share_sex_bal = string((r(N) / `N_bal') * 100, "%5.1f")
+
+* Share with <10% missing for both age and sex
+count if share_age_nonmiss > 0.90 & share_sex_nonmiss > 0.90
+local share_complete_full = string((r(N) / `N_full') * 100, "%5.1f")
+
+count if share_age_nonmiss > 0.90 & share_sex_nonmiss > 0.90 & months_total == 36
+local share_complete_bal = string((r(N) / `N_bal') * 100, "%5.1f")
+
+********************************************************************************
+* Table 1: Coverage
+********************************************************************************
+texdoc init "$output/sumstats_ori_coverage.tex", replace force
+tex \begin{tabular}{lcc} \toprule \\[-2.5ex]
+tex & \multicolumn{1}{c}{Full Sample} & \multicolumn{1}{c}{Balanced Sample} \\
+tex \hline
+tex Full coverage (36 months) & `share_full_full'\% & `share_full_bal'\% \\
+tex Has population data        & `share_pop_full'\%  & `share_pop_bal'\%  \\
+tex $<10\%$ Missing Age      & `share_age_full'\%  & `share_age_bal'\%  \\
+tex $<10\%$ Missing Sex      & `share_sex_full'\%  & `share_sex_bal'\%  \\
+tex $<10\%$ Missing Age and Sex & `share_complete_full'\% & `share_complete_bal'\% \\
+tex \hline
+tex N Agencies  & `N_full_fmt' & `N_bal_fmt' \\
+tex \bottomrule
+tex \end{tabular}
+texdoc close
+
+********************************************************************************
+* Table 2: Data Completeness (Percentiles)
+********************************************************************************
+
+texdoc init "$output/sumstats_ori_completeness.tex", replace force
+tex \begin{tabular}{lcccc} \toprule \\[-2.5ex]
+tex & \multicolumn{2}{c}{Full Sample} & \multicolumn{2}{c}{Balanced Sample} \\
+tex \cmidrule(lr){2-3} \cmidrule(lr){4-5}
+tex & \multicolumn{1}{c}{Age} & \multicolumn{1}{c}{Sex} & \multicolumn{1}{c}{Age} & \multicolumn{1}{c}{Sex} \\
+tex \hline
+tex ~~10th percentile & `age_p10_full' & `sex_p10_full' & `age_p10_bal' & `sex_p10_bal' \\
+tex ~~25th percentile & `age_p25_full' & `sex_p25_full' & `age_p25_bal' & `sex_p25_bal' \\
+tex ~~50th percentile & `age_p50_full' & `sex_p50_full' & `age_p50_bal' & `sex_p50_bal' \\
+tex ~~75th percentile & `age_p75_full' & `sex_p75_full' & `age_p75_bal' & `sex_p75_bal' \\
+tex ~~90th percentile & `age_p90_full' & `sex_p90_full' & `age_p90_bal' & `sex_p90_bal' \\
+tex \hline
+tex N Agencies & \multicolumn{1}{c}{`N_full_fmt'} & \multicolumn{1}{c}{`N_full_fmt'} & \multicolumn{1}{c}{`N_bal_fmt'} & \multicolumn{1}{c}{`N_bal_fmt'}\\
+tex \bottomrule
+tex \end{tabular}
+texdoc close
+
+// Aggregate Number of Incidents by Month for Balanced Panel by Ever-Treated and Never-Treated \\
+use "$nibrs/incidents_by_agency_month.dta", clear
+*merge coverage
+merge m:1 ori using "$nibrs/agency_panel"
+drop if _merge ==2
+
+*keep full coverage
+keep if coverage_full ==1
+
+*treatment and control
+gen treated =(inlist(state, "louisiana", "utah", "mississippi", "virginia", "arkansas", "texas", "montana", "north carolina"))
+replace treated =1 if inlist(state,  "idaho", "kansas", "kentucky", "nebraska", "indiana", "alabama", "oklahoma")
+
+*collapse
+collapse (sum) incident_id, by(modate treated)
+
+
+********************************************************************************
+* Figure: Monthly Incidents by Treatment Status
+********************************************************************************
+
+twoway ///
+    (connected incident_id modate if treated == 0, ///
+        lcolor(navy) mcolor(navy) msymbol(circle) lpattern(solid)) ///
+    (connected incident_id modate if treated == 1, ///
+        lcolor(maroon) mcolor(maroon) msymbol(square) lpattern(dash)), ///
+    xlabel(, angle(45) valuelabel format(%tmMon_CCYY) labsize(small)) ///
+    ylabel(, format(%9.0fc) labsize(small)) ///
+    xtitle("Month") ///
+    ytitle("Number of Incidents") ///
+    legend(order(1 "Control" 2 "Treated") pos(11) ring(0) cols(1)) ///
+    graphregion(color(white)) plotregion(color(white)) ///
+    name(incidents_by_treatment, replace)
+
+graph export "$output/incidents_by_treatment.pdf", replace
+
+
+
+// Sex Crimes Data \\
+*load sex crime data 
+use "$nibrs/sex_crime_offenders_2022_2024.dta", clear
+
+*get everything at the agency-month-year level
+gen modate = monthly(substr(incident_date, 1, 7), "YM")
+format modate %tm
+
+*variable for counts
+gen n=1 
+
+*treatment status
+gen treated =(inlist(state, "louisiana", "utah", "mississippi", "virginia", "arkansas", "texas", "montana", "north carolina"))
+replace treated =1 if inlist(state,  "idaho", "kansas", "kentucky", "nebraska", "indiana", "alabama", "oklahoma")
+
+*collapse
+collapse (sum) n, by(modate treated)
+
+********************************************************************************
+* Figure: Monthly Sex Crime Incidents by Treatment Status
+********************************************************************************
+
+twoway ///
+    (connected n modate if treated == 0, ///
+        lcolor(navy) mcolor(navy) msymbol(circle) lpattern(solid)) ///
+    (connected n modate if treated == 1, ///
+        lcolor(maroon) mcolor(maroon) msymbol(square) lpattern(dash)), ///
+    xlabel(, angle(45) valuelabel format(%tmMon_CCYY) labsize(small)) ///
+    ylabel(, format(%9.0fc) labsize(small)) ///
+    xtitle("Month") ///
+    ytitle("Number of Sex Crime Incidents") ///
+    legend(order(1 "Control" 2 "Treated") pos(11) ring(0) cols(1)) ///
+    graphregion(color(white)) plotregion(color(white)) ///
+    name(incidents_by_treatment, replace)
+
+graph export "$output/incidents_sexcrime_by_treatment.pdf", replace
+
+/*
+*offense categories
+foreach x in porn trafficking prostitution {
+	gen offense_`x' = strpos(lower(ucr_offense_code1),"`x'")>0 ///
+	| strpos(lower(ucr_offense_code2),"`x'")>0 ///
+	| strpos(lower(ucr_offense_code3),"`x'")>0 ///
+	| strpos(lower(ucr_offense_code4),"`x'")>0 ///
+	| strpos(lower(ucr_offense_code5),"`x'")>0 
+}
+
+gen offense_sex = strpos(lower(ucr_offense_code1),"sex offenses")>0 ///
+	| strpos(lower(ucr_offense_code2),"sex offenses")>0 ///
+	| strpos(lower(ucr_offense_code3),"sex offenses")>0 ///
+	| strpos(lower(ucr_offense_code4),"sex offenses")>0 ///
+	| strpos(lower(ucr_offense_code5),"sex offenses")>0
+
+*generate indicators at the agency-level 
+foreach x in porn trafficking prostitution sex {
+	bysort ori: egen any_`x' =max(offense_`x')
+}
+
+foreach x in porn trafficking prostitution sex {
+	bysort ori: egen num_`x' =sum(offense_`x')
+}
+
+*age
+replace age_of_offender ="99" if age_of_offender =="over 98 years old"
+replace age_of_offender ="" if age_of_offender =="unknown"
+destring(age_of_offender), replace
+
+*merge in panel info
+merge m:1 ori using "$nibrs/agency_panel"
+
+*/
